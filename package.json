@@ -1,0 +1,30 @@
+{
+  "name": "notidian",
+  "version": "1.0.0",
+  "description": "Sync Notion pages to Obsidian while preserving directory structure",
+  "main": "dist/sync.js",
+  "scripts": {
+    "build": "tsc",
+    "sync": "npm run build && node dist/sync.js",
+    "dev": "tsx src/sync.ts",
+    "clean": "rm -rf dist"
+  },
+  "keywords": [
+    "notion",
+    "obsidian",
+    "sync",
+    "markdown"
+  ],
+  "author": "",
+  "license": "MIT",
+  "dependencies": {
+    "@notionhq/client": "^2.2.14",
+    "notion-to-md": "^3.1.1",
+    "dotenv": "^16.3.1"
+  },
+  "devDependencies": {
+    "@types/node": "^20.10.0",
+    "typescript": "^5.3.2",
+    "tsx": "^4.6.2"
+  }
+}

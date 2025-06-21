@@ -27,14 +27,14 @@ Thumbs.db
 *.swp
 *.swo
 
+# Test coverage
+coverage/
+.nyc_output/
+
 # Temporary files
 *.tmp
 *.temp
 .cache/
-
-# Test coverage
-coverage/
-.nyc_output/
 
 # TypeScript cache
 *.tsbuildinfo

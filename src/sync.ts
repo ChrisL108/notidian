@@ -51,14 +51,14 @@ class NotidianSync {
   private async getPageTitle(pageId: string): Promise<string> {
     try {
       const page = await this.notion.pages.retrieve({ page_id: pageId });
-      
+
       if ('properties' in page && page.properties.title && 'title' in page.properties.title) {
         const titleProperty = page.properties.title.title;
         if (Array.isArray(titleProperty) && titleProperty.length > 0) {
           return titleProperty.map(t => t.plain_text).join('');
         }
       }
-      
+
       if ('properties' in page) {
         for (const prop of Object.values(page.properties)) {
           if (prop.type === 'title' && 'title' in prop && Array.isArray(prop.title) && prop.title.length > 0) {
@@ -66,7 +66,7 @@ class NotidianSync {
           }
         }
       }
-      
+
       return 'Untitled';
     } catch (error) {
       console.error(`Error getting page title for ${pageId}:`, error);
@@ -76,23 +76,23 @@ class NotidianSync {
 
   private async getAllPages(pageId: string, currentPath: string[] = [], isRoot: boolean = false): Promise<PageInfo[]> {
     const pages: PageInfo[] = [];
-    
+
     try {
       const title = await this.getPageTitle(pageId);
       const pagePath = isRoot ? currentPath : [...currentPath, this.sanitizeFileName(title)];
-      
+
       // Add all pages including root
       pages.push({
         id: pageId,
         title,
         path: pagePath
       });
-      
+
       const children = await this.notion.blocks.children.list({
         block_id: pageId,
         page_size: 100
       });
-      
+
       for (const child of children.results) {
         if ('type' in child && child.type === 'child_page' && child.id) {
           const childPages = await this.getAllPages(child.id, pagePath, false);
@@ -102,23 +102,37 @@ class NotidianSync {
     } catch (error) {
       console.error(`Error getting pages for ${pageId}:`, error);
     }
-    
+
     return pages;
+  }
+
+  private fixChecklistIndentation(markdown: string): string {
+    // Fix nested checklist items by reducing 8-space indentation to 4-space
+    // This regex matches lines that start with 8+ spaces followed by checkbox syntax
+    return markdown.replace(/^(\s{8,})(- \[[ x]\])/gm, (_match, spaces, checkbox) => {
+      // Count how many 8-space groups there are
+      const indentLevel = Math.floor(spaces.length / 8);
+      // Replace with 4-space groups
+      const newIndent = '    '.repeat(indentLevel);
+      return newIndent + checkbox;
+    });
   }
 
   private async convertPageToMarkdown(pageId: string): Promise<string> {
     try {
       const mdBlocks = await this.n2m.pageToMarkdown(pageId);
       const mdString = this.n2m.toMarkdownString(mdBlocks);
-      
+
       const frontmatter = `---
 notion_id: ${pageId}
 last_sync: ${new Date().toISOString()}
 ---
 
 `;
-      
-      return frontmatter + mdString.parent;
+
+      const fixedContent = this.fixChecklistIndentation(mdString.parent);
+
+      return frontmatter + fixedContent;
     } catch (error) {
       console.error(`Error converting page ${pageId} to markdown:`, error);
       return '';
@@ -127,7 +141,7 @@ last_sync: ${new Date().toISOString()}
 
   private async savePage(pageInfo: PageInfo, content: string): Promise<void> {
     let filePath: string;
-    
+
     if (pageInfo.path.length === 0) {
       // Root page - save as index.md in the root directory
       filePath = path.join(this.obsidianPath, 'index.md');
@@ -137,7 +151,7 @@ last_sync: ${new Date().toISOString()}
       await this.ensureDirectory(dirPath);
       filePath = path.join(dirPath, 'index.md');
     }
-    
+
     try {
       await fs.writeFile(filePath, content, 'utf8');
       console.log(`Saved: ${filePath}`);
@@ -150,14 +164,14 @@ last_sync: ${new Date().toISOString()}
     console.log('Starting Notidian sync...');
     console.log(`Root page ID: ${this.rootPageId}`);
     console.log(`Obsidian vault path: ${this.obsidianPath}`);
-    
+
     try {
       await this.ensureDirectory(this.obsidianPath);
-      
+
       console.log('Fetching page structure from Notion...');
       const pages = await this.getAllPages(this.rootPageId, [], true);
       console.log(`Found ${pages.length} pages to sync`);
-      
+
       for (const pageInfo of pages) {
         const displayPath = pageInfo.path.length === 0 ? '[root]' : pageInfo.path.join('/');
         console.log(`Processing: ${displayPath}`);
@@ -166,7 +180,7 @@ last_sync: ${new Date().toISOString()}
           await this.savePage(pageInfo, content);
         }
       }
-      
+
       console.log('Sync completed successfully!');
     } catch (error) {
       console.error('Sync failed:', error);

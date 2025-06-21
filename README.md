@@ -32,6 +32,28 @@ NOTION_ROOT_PAGE_ID=your_sync_directory_page_id
 OBSIDIAN_VAULT_PATH=/path/to/obsidian/sync/folder
 ```
 
+## How It Works
+
+- **Directory Structure**: Each Notion page becomes a directory with an `index.md` file inside
+- **Root Page**: The root page you specify is not created as a directory - its children become top-level items
+- **Frontmatter**: Each file includes metadata with Notion ID and sync timestamp
+
+### Example Structure
+```
+ObsidianVault/NotionSync/
+├── index.md                    # Root page content (if any)
+├── Project Notes/
+│   ├── index.md               # Project Notes page content
+│   └── Meeting 2024-01-15/
+│       └── index.md           # Meeting page content
+└── Personal/
+    └── index.md               # Personal page content
+```
+
+## Important Notes
+
+⚠️ **iCloud Sync Warning**: If your Obsidian vault is in an iCloud-synced folder (Documents, Desktop, etc.), you may experience files reverting to older versions. Consider moving your vault outside iCloud-managed directories or ensuring iCloud is set to keep files downloaded locally.
+
 ## Scheduling Automatic Syncs
 
 ### macOS/Linux (using cron)
@@ -221,9 +243,3 @@ echo "Recent errors: $(grep -c 'Error' sync.log | tail -1)"
 - **Command not found**: Use full paths to node and npm in scripts
 - **Environment variables missing**: Some schedulers need explicit `.env` loading
 - **Time zone issues**: Scheduled times use system time zone
-
-## See Also
-
-- [Setup Guide](./SETUP.md) - Detailed setup instructions
-- [Notion API Docs](https://developers.notion.com)
-- [Obsidian Help](https://help.obsidian.md)

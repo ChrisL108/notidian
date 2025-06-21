@@ -74,13 +74,14 @@ class NotidianSync {
     }
   }
 
-  private async getAllPages(pageId: string, currentPath: string[] = []): Promise<PageInfo[]> {
+  private async getAllPages(pageId: string, currentPath: string[] = [], isRoot: boolean = false): Promise<PageInfo[]> {
     const pages: PageInfo[] = [];
     
     try {
       const title = await this.getPageTitle(pageId);
-      const pagePath = [...currentPath, this.sanitizeFileName(title)];
+      const pagePath = isRoot ? currentPath : [...currentPath, this.sanitizeFileName(title)];
       
+      // Add all pages including root
       pages.push({
         id: pageId,
         title,
@@ -94,7 +95,7 @@ class NotidianSync {
       
       for (const child of children.results) {
         if ('type' in child && child.type === 'child_page' && child.id) {
-          const childPages = await this.getAllPages(child.id, pagePath);
+          const childPages = await this.getAllPages(child.id, pagePath, false);
           pages.push(...childPages);
         }
       }
@@ -125,10 +126,17 @@ last_sync: ${new Date().toISOString()}
   }
 
   private async savePage(pageInfo: PageInfo, content: string): Promise<void> {
-    const filePath = path.join(this.obsidianPath, ...pageInfo.path) + '.md';
-    const dirPath = path.dirname(filePath);
+    let filePath: string;
     
-    await this.ensureDirectory(dirPath);
+    if (pageInfo.path.length === 0) {
+      // Root page - save as index.md in the root directory
+      filePath = path.join(this.obsidianPath, 'index.md');
+    } else {
+      // All other pages - save as index.md within their directory
+      const dirPath = path.join(this.obsidianPath, ...pageInfo.path);
+      await this.ensureDirectory(dirPath);
+      filePath = path.join(dirPath, 'index.md');
+    }
     
     try {
       await fs.writeFile(filePath, content, 'utf8');
@@ -147,11 +155,12 @@ last_sync: ${new Date().toISOString()}
       await this.ensureDirectory(this.obsidianPath);
       
       console.log('Fetching page structure from Notion...');
-      const pages = await this.getAllPages(this.rootPageId);
+      const pages = await this.getAllPages(this.rootPageId, [], true);
       console.log(`Found ${pages.length} pages to sync`);
       
       for (const pageInfo of pages) {
-        console.log(`Processing: ${pageInfo.path.join('/')}`);
+        const displayPath = pageInfo.path.length === 0 ? '[root]' : pageInfo.path.join('/');
+        console.log(`Processing: ${displayPath}`);
         const content = await this.convertPageToMarkdown(pageInfo.id);
         if (content) {
           await this.savePage(pageInfo, content);
